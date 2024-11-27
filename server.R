@@ -139,40 +139,44 @@ server <- function(input, output) {
       }
     })
   
-  
-  #Сохранить как ксв
-  observeEvent(input$saveAsCsv, {
-    data <- journalData$data
-    if (!is.null(data) && nrow(data) > 0 && nzchar(input$fileName)) {
-      write_delim(data, paste0(input$fileName, ".csv"), delim = ";")
-      updateTextInput(inputId="fileName", value="")
-      showNotification("Таблица сохранена как CSV", type = "message")
-    } else {
-      showNotification("Нет данных для сохранения", type = "error")
-    }
-  })
-  #сохранить как xlsx
-  observeEvent(input$saveAsXlsx, {
-    data <- journalData$data
-    if (!is.null(data) && nrow(data) > 0 && nzchar(input$fileName)) { 
-      write.xlsx(data, paste0(input$fileName, ".xlsx"))  # Save as XLSX using openxlsx package
-      updateTextInput(inputId="fileName", value="")
-      showNotification(paste("Таблица сохранена как:", paste0(input$fileName, ".xlsx")), type="message")
-    } else {
-      showNotification("Нет данных для сохранения или имя файла не указано.", type="error")
-    }
-  })
-  #сохранить как тхт
-  observeEvent(input$saveAsTxt, {
-    data <- journalData$data
-    if (!is.null(data) && nrow(data) > 0 && nzchar(input$fileName)) {
-      write_delim(data, paste0(input$fileName, ".txt"), delim = ";")
-      updateTextInput(inputId="fileName", value="")
-      showNotification("Таблица сохранена как TXT", type = "message")
-    } else {
-      showNotification("Нет данных для сохранения", type = "error")
-    }
-  })
+    # Обработчик для CSV
+    output$downloadCsv <- downloadHandler(
+      filename = function() {
+        "journal.csv"
+      },
+      content = function(file) {
+        data <- journalData$data
+        if (!is.null(data) && nrow(data) > 0) {
+          write_delim(data, file, delim = ";")
+        }
+      }
+    )
+    
+    # Обработчик для XLSX
+    output$downloadXlsx <- downloadHandler(
+      filename = function() {
+        "journal.xlsx"
+      },
+      content = function(file) {
+        data <- journalData$data
+        if (!is.null(data) && nrow(data) > 0) {
+          write.xlsx(data, file)
+        }
+      }
+    )
+    
+    # Обработчик для TXT
+    output$downloadTxt <- downloadHandler(
+      filename = function() {
+        "journal.txt"
+      },
+      content = function(file) {
+        data <- journalData$data
+        if (!is.null(data) && nrow(data) > 0) {
+          write_delim(data, file, delim = ";")
+        }
+      }
+    )
   
   output$tableStats <- DT::renderDataTable({
     req(journalData$data)  # Проверяем, что данные загружены
@@ -297,94 +301,94 @@ server <- function(input, output) {
   }
   
 # Функция для построения графика по классам
-plotByClass <- function() {
-  data <- journalData$data
+  plotByClass <- function() {
+    data <- journalData$data
+    
+    subject_columns <- c("informatics", "physics", "mathemathics", "literature", "music")
+    class_column <- "class"
+    
+    stats_data <- data.frame(
+      Class = character(),
+      Subject = character(),
+      Grade = numeric(),
+      Average = numeric(),
+      Median = numeric(),
+      Count = numeric(),
+      Percentage = numeric(),
+      stringsAsFactors = FALSE
+    )
+    
+    for (class in unique(data[[class_column]])) {
+      for (subject in subject_columns) {
+        subject_data <- data[data[[class_column]] == class, subject, drop = TRUE]
+        
+        if (length(subject_data) > 0) {  
+          for (grade in unique(subject_data)) {
+            count <- sum(subject_data == grade, na.rm = TRUE)
+            percentage <- count / length(subject_data) * 100
+            
+            stats_data <- rbind(stats_data, data.frame(
+              Class = class,
+              Subject = subject,
+              Grade = grade,
+              Average = round(mean(subject_data, na.rm = TRUE), 2),
+              Median = round(median(subject_data, na.rm = TRUE), 2),
+              Count = count,
+              Percentage = round(percentage, 2),
+              stringsAsFactors = FALSE
+            ))
+          }
+        }
+      }
+    }
+    
+    stats_data <- stats_data[order(stats_data$Class, stats_data$Subject, stats_data$Grade), ]
+    
+    ggplot(stats_data, aes(x = Grade, y = Count, fill = Subject)) +
+      geom_bar(stat="identity", position="dodge") +
+      facet_wrap(~ Class) +
+      labs(x="Оценка", y="Количество", fill="Предмет") +
+      theme_bw()
+  }
   
-  subject_columns <- c("informatics", "physics", "mathemathics", "literature", "music")
-  class_column <- "class"
-  
-  stats_data <- data.frame(
-    Class = character(),
-    Subject = character(),
-    Grade = numeric(),
-    Average = numeric(),
-    Median = numeric(),
-    Count = numeric(),
-    Percentage = numeric(),
-    stringsAsFactors = FALSE
-  )
-  
-  for (class in unique(data[[class_column]])) {
+  # Функция для построения графика для всех классов
+  plotForAllClasses <- function() {
+    data <- journalData$data
+    
+    subject_columns <- c("informatics", "physics", "mathemathics", "literature", "music")
+    
+    stats_data <- data.frame(Subject=character(), Grade=numeric(),
+                             Average=numeric(), Median=numeric(),
+                             Count=numeric(), Percentage=numeric(),
+                             stringsAsFactors=FALSE)
+    
     for (subject in subject_columns) {
-      subject_data <- data[data[[class_column]] == class, subject, drop = TRUE]
+      subject_scores <- data[[subject]]
       
-      if (length(subject_data) > 0) {  
-        for (grade in unique(subject_data)) {
-          count <- sum(subject_data == grade, na.rm = TRUE)
-          percentage <- count / length(subject_data) * 100
+      if (length(subject_scores) > 0) {  
+        for (grade in unique(subject_scores)) {
+          count <- sum(subject_scores == grade, na.rm=TRUE)
+          percentage <- (count / length(subject_scores)) * 100;
           
           stats_data <- rbind(stats_data, data.frame(
-            Class = class,
-            Subject = subject,
-            Grade = grade,
-            Average = round(mean(subject_data, na.rm = TRUE), 2),
-            Median = round(median(subject_data, na.rm = TRUE), 2),
-            Count = count,
-            Percentage = round(percentage, 2),
-            stringsAsFactors = FALSE
+            Subject=subject,
+            Grade=grade,
+            Average=mean(subject_scores, na.rm=TRUE),
+            Median=median(subject_scores, na.rm=TRUE),
+            Count=count,
+            Percentage=percentage,
+            stringsAsFactors=FALSE
           ))
         }
       }
     }
-  }
-  
-  stats_data <- stats_data[order(stats_data$Class, stats_data$Subject, stats_data$Grade), ]
-  
-  ggplot(stats_data, aes(x = Grade, y = Count, fill = Subject)) +
-    geom_bar(stat="identity", position="dodge") +
-    facet_wrap(~ Class) +
-    labs(x="Оценка", y="Количество", fill="Предмет") +
-    theme_bw()
-}
-
-# Функция для построения графика для всех классов
-plotForAllClasses <- function() {
-  data <- journalData$data
-  
-  subject_columns <- c("informatics", "physics", "mathemathics", "literature", "music")
-  
-  stats_data <- data.frame(Subject=character(), Grade=numeric(),
-                           Average=numeric(), Median=numeric(),
-                           Count=numeric(), Percentage=numeric(),
-                           stringsAsFactors=FALSE)
-  
-  for (subject in subject_columns) {
-    subject_scores <- data[[subject]]
     
-    if (length(subject_scores) > 0) {  
-      for (grade in unique(subject_scores)) {
-        count <- sum(subject_scores == grade, na.rm=TRUE)
-        percentage <- (count / length(subject_scores)) * 100;
-        
-        stats_data <- rbind(stats_data, data.frame(
-          Subject=subject,
-          Grade=grade,
-          Average=mean(subject_scores, na.rm=TRUE),
-          Median=median(subject_scores, na.rm=TRUE),
-          Count=count,
-          Percentage=percentage,
-          stringsAsFactors=FALSE
-        ))
-      }
-    }
+    stats_data <- stats_data[order(stats_data$Subject, stats_data$Grade), ]
+    
+    ggplot(stats_data, aes(x=Grade, y=Count, fill=Subject)) +
+      geom_bar(stat="identity", position="dodge") +
+      labs(x="Оценка", y="Количество", fill="Предмет") +
+      theme_bw()
   }
-  
-  stats_data <- stats_data[order(stats_data$Subject, stats_data$Grade), ]
-  
-  ggplot(stats_data, aes(x=Grade, y=Count, fill=Subject)) +
-    geom_bar(stat="identity", position="dodge") +
-    labs(x="Оценка", y="Количество", fill="Предмет") +
-    theme_bw()
-}
   
 }

@@ -39,10 +39,13 @@ ui <- fluidPage(
                  actionButton("editRecord", "Редактировать запись"),
                  numericInput("rowToDelete", "Номер строки для удаления", value = NA),
                  actionButton("deleteRow", "Удалить строку"),
-                 textInput("fileName", "Введите название файла для сохранения", value = "table"),
-                 actionButton("saveAsCsv", "Сохранить как CSV"), # Новая кнопка для сохранения в CSV
-                 actionButton("saveAsXlsx", "Сохранить как XLSX"), # Новая кнопка для сохранения в XLSX
-                 actionButton("saveAsTxt", "Сохранить как TXT"), # Новая кнопка для сохранения в TXT
+                 br(),
+                 tags$div(style="font-size: 16px; font-weight: bold; margin-top: 10px;", 
+                          "Сохранить журнал:"),
+                 br(),
+                 downloadButton("downloadCsv", "Скачать CSV"),
+                 downloadButton("downloadXlsx", "Скачать XLSX"),
+                 downloadButton("downloadTxt", "Скачать TXT"),
                  dataTableOutput("journalTable")
                ),
                mainPanel(
